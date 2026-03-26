@@ -1,15 +1,11 @@
-<?php
+﻿<?php
 
 /**
  * Vercel Serverless Entry Point for Laravel
- *
- * Vercel uses a read-only filesystem, so all writable paths
- * (views cache, sessions, logs) are redirected to /tmp.
  */
 
 define('LARAVEL_START', microtime(true));
 
-// Create writable directories in /tmp for Vercel's read-only filesystem
 $storageTmp = '/tmp/storage';
 $dirs = [
     $storageTmp . '/app/public',
@@ -25,14 +21,23 @@ foreach ($dirs as $dir) {
     }
 }
 
-// Point compiled views to writable /tmp path
+// Copy SQLite database to /tmp (Vercel filesystem is read-only)
+$dbTmp = '/tmp/database.sqlite';
+if (!file_exists($dbTmp)) {
+    $dbSource = __DIR__ . '/../database/database.sqlite';
+    if (file_exists($dbSource)) {
+        copy($dbSource, $dbTmp);
+    } else {
+        touch($dbTmp);
+    }
+}
+
 putenv('VIEW_COMPILED_PATH=' . $storageTmp . '/framework/views');
 
 require __DIR__ . '/../vendor/autoload.php';
 
 $app = require_once __DIR__ . '/../bootstrap/app.php';
 
-// Override storage path so Laravel writes to /tmp
 $app->useStoragePath($storageTmp);
 
 $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);

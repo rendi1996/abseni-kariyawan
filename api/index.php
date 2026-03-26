@@ -29,6 +29,9 @@ if (!file_exists($dbTmp)) {
 
 putenv('APP_ENV=production');
 putenv('APP_DEBUG=false');
+putenv('APP_KEY=base64:Ss0YPE25VtW6i+vknKKMXnXLsxK/gWey835hWY0W0Hg=');
+putenv('CACHE_DRIVER=array');
+putenv('SESSION_DRIVER=cookie');
 putenv('DB_CONNECTION=sqlite');
 putenv('DB_DATABASE=' . $dbTmp);
 putenv('VIEW_COMPILED_PATH=' . $storageTmp . '/framework/views');

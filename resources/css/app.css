@@ -1,0 +1,46 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+	color: #1e293b;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+	background-color: #f1f5f9;
+	background-image:
+		radial-gradient(circle at 0% 0%, rgba(20, 184, 166, 0.12), transparent 32%),
+		radial-gradient(circle at 100% 100%, rgba(59, 130, 246, 0.1), transparent 28%);
+}
+
+h1,
+h2,
+h3 {
+	color: #0f172a;
+}
+
+.panel {
+	border: 1px solid #e2e8f0;
+	border-radius: 1rem;
+	background: #ffffff;
+	box-shadow: 0 2px 10px rgba(15, 23, 42, 0.06);
+}
+
+.app-table {
+	width: 100%;
+	border-collapse: collapse;
+}
+
+.app-table th {
+	background: #f8fafc;
+	font-size: 0.75rem;
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	color: #475569;
+}
+
+.app-table th,
+.app-table td {
+	border-bottom: 1px solid #e2e8f0;
+	padding: 0.5rem 0.75rem;
+	text-align: left;
+}

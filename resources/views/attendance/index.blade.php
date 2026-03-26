@@ -2,8 +2,25 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Absensi</title>
+
+    {{-- PWA Meta Tags --}}
+    <meta name="theme-color" content="#0f766e">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Absensi">
+    <meta name="application-name" content="Absensi Harian">
+    <meta name="msapplication-TileColor" content="#0f766e">
+    <meta name="msapplication-TileImage" content="/icons/icon-144.png">
+
+    {{-- Manifest & Icons --}}
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="/icons/icon-152.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png">
+
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
     <style>
         :root {
@@ -139,25 +156,64 @@
         #cameraContainer {
             background: var(--surface-2);
             border-radius: 14px;
-            border: 1px dashed #a8bfd7;
-            padding: 12px;
+            border: 1px solid #a8bfd7;
+            overflow: hidden;
+        }
+
+        #cameraWrap {
+            position: relative;
+            display: none;
         }
 
         #cameraVideo {
             display: none;
             width: 100%;
-            max-width: 100%;
             aspect-ratio: 3 / 4;
-            border-radius: 12px;
-            border: 1px solid #9fb3c8;
             background: #000;
-            margin-top: 10px;
             object-fit: cover;
+            vertical-align: top;
+        }
+
+        #photoPreview {
+            display: none;
+            width: 100%;
+            object-fit: cover;
+            vertical-align: top;
         }
 
         #cameraCanvas { display: none; }
 
-        .camera-toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+        .capture-overlay {
+            position: absolute;
+            bottom: 24px;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: center;
+            pointer-events: none;
+        }
+
+        .camera-toolbar { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 12px; justify-content: center; align-items: center; }
+        .camera-info { padding: 0 12px 12px; }
+
+        #captureBtn {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0;
+            background: linear-gradient(135deg, #15803d, var(--success));
+            box-shadow: 0 8px 24px rgba(22, 163, 74, 0.4);
+            border: none;
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            pointer-events: all;
+        }
+        #captureBtn:hover { transform: scale(1.08); box-shadow: 0 12px 28px rgba(22,163,74,0.5); }
+        #captureBtn svg { pointer-events: none; }
         .helper-text { margin: 8px 0 0; font-size: 0.9rem; color: var(--muted); }
 
         .schedule-strip {
@@ -445,12 +501,23 @@
             .attendance-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
             .card { padding: 16px; }
             body { padding-top: 18px; }
-            .camera-toolbar .btn { flex: 1; min-height: 48px; }
+            .camera-toolbar .btn { min-height: 48px; }
             .photo-result-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
 <body>
+    {{-- PWA Install Banner --}}
+    <div id="pwa-install-banner" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:9999;background:#0f766e;color:#fff;padding:14px 16px;align-items:center;gap:12px;box-shadow:0 -4px 16px rgba(0,0,0,0.2);">
+        <img src="/icons/icon-72.png" alt="icon" style="width:40px;height:40px;border-radius:10px;flex-shrink:0;">
+        <div style="flex:1;min-width:0;">
+            <strong style="font-size:0.95rem;">Install Aplikasi Absensi</strong>
+            <p style="margin:2px 0 0;font-size:0.8rem;opacity:0.85;">Tambahkan ke layar utama untuk akses cepat</p>
+        </div>
+        <button id="pwa-install-btn" style="background:#fff;color:#0f766e;border:none;border-radius:8px;padding:8px 16px;font-weight:700;cursor:pointer;font-size:0.85rem;white-space:nowrap;">Install</button>
+        <button id="pwa-dismiss-btn" style="background:transparent;border:none;color:#fff;font-size:1.4rem;cursor:pointer;padding:0 4px;line-height:1;">&times;</button>
+    </div>
+
     <div class="container">
 
         {{-- Topbar --}}
@@ -504,19 +571,29 @@
                                     </p>
                                 </div>
                             </div>
-                            <video id="cameraVideo" autoplay playsinline muted></video>
-                            <canvas id="cameraCanvas"></canvas>
-                            <img id="photoPreview" alt="Preview Foto"
-                                 style="display:none;width:100%;max-width:420px;height:auto;border-radius:12px;border:1px solid #9fb3c8;object-fit:cover;margin-top:10px;">
+                            <div id="cameraWrap">
+                                <video id="cameraVideo" autoplay playsinline muted></video>
+                                <canvas id="cameraCanvas"></canvas>
+                                <img id="photoPreview" alt="Preview Foto">
+                                <div class="capture-overlay">
+                                    <button type="button" id="captureBtn" style="display:none;" title="Ambil Foto">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                                            <circle cx="12" cy="13" r="4"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
                             <div class="camera-toolbar">
                                 <button type="button" id="openCameraBtn" class="btn">Buka Kamera</button>
-                                <button type="button" id="captureBtn" class="btn btn-success" style="display:none;">Ambil Foto</button>
                                 <button type="button" id="retakeBtn" class="btn" style="display:none;">Ulangi Foto</button>
                             </div>
-                            <p class="helper-text"><strong>Android mode:</strong> kamera belakang diprioritaskan agar framing wajah lebih pas.</p>
-                            <div id="photoStatus" class="photo-status pending">Foto belum diambil</div>
-                            <div id="captureWarning" style="display:none;background:#fee2e2;border:1px solid #fecdd3;color:#9f1239;border-radius:8px;padding:10px;margin-top:8px;font-size:0.85rem;">
-                                ⚠️ <strong>Warning:</strong> File ini seperti upload manual, bukan dari kamera. Silakan ambil foto langsung dari kamera.
+                            <div class="camera-info">
+                                <p class="helper-text"><strong>Android mode:</strong> kamera belakang diprioritaskan agar framing wajah lebih pas.</p>
+                                <div id="photoStatus" class="photo-status pending">Foto belum diambil</div>
+                                <div id="captureWarning" style="display:none;background:#fee2e2;border:1px solid #fecdd3;color:#9f1239;border-radius:8px;padding:10px;margin-top:8px;font-size:0.85rem;">
+                                    ⚠️ <strong>Warning:</strong> File ini seperti upload manual, bukan dari kamera. Silakan ambil foto langsung dari kamera.
+                                </div>
                             </div>
                         </div>
                         <input type="file" name="photo" id="photoInput" style="display:none;" accept="image/*" capture="environment">
@@ -648,6 +725,7 @@
         const retakeBtn         = document.getElementById('retakeBtn');
         const photoInput        = document.getElementById('photoInput');
         const cameraPlaceholder = document.getElementById('cameraPlaceholder');
+        const cameraWrap        = document.getElementById('cameraWrap');
         const photoPreview      = document.getElementById('photoPreview');
         const cameraVideo       = document.getElementById('cameraVideo');
         const cameraCanvas      = document.getElementById('cameraCanvas');
@@ -820,6 +898,7 @@
                 }
                 cameraVideo.srcObject     = cameraStream;
                 await cameraVideo.play();
+                cameraWrap.style.display  = 'block';
                 cameraVideo.style.display = 'block';
                 captureBtn.style.display  = 'inline-flex';
                 openCameraBtn.style.display = 'none';
@@ -988,6 +1067,43 @@
         updatePhotoStatus(false);
         setSubmitState(false);
         fetchLocation();
+
+        // ── PWA Service Worker ─────────────────────────────────────────────
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .catch((err) => console.warn('SW registration failed:', err));
+            });
+        }
+
+        // ── PWA Install Banner ─────────────────────────────────────────────
+        let deferredPrompt = null;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            const banner = document.getElementById('pwa-install-banner');
+            if (banner) banner.style.display = 'flex';
+        });
+
+        window.addEventListener('appinstalled', () => {
+            const banner = document.getElementById('pwa-install-banner');
+            if (banner) banner.style.display = 'none';
+            deferredPrompt = null;
+        });
+
+        document.getElementById('pwa-install-btn')?.addEventListener('click', async () => {
+            if (!deferredPrompt) return;
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            deferredPrompt = null;
+            if (outcome === 'accepted') {
+                document.getElementById('pwa-install-banner').style.display = 'none';
+            }
+        });
+
+        document.getElementById('pwa-dismiss-btn')?.addEventListener('click', () => {
+            document.getElementById('pwa-install-banner').style.display = 'none';
+        });
     </script>
 </body>
 </html>

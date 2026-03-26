@@ -1,9 +1,5 @@
 ﻿<?php
 
-/**
- * Vercel Serverless Entry Point for Laravel
- */
-
 define('LARAVEL_START', microtime(true));
 
 $storageTmp = '/tmp/storage';
@@ -21,7 +17,6 @@ foreach ($dirs as $dir) {
     }
 }
 
-// Copy SQLite database to /tmp (Vercel filesystem is read-only)
 $dbTmp = '/tmp/database.sqlite';
 if (!file_exists($dbTmp)) {
     $dbSource = __DIR__ . '/../database/database.sqlite';
@@ -32,20 +27,21 @@ if (!file_exists($dbTmp)) {
     }
 }
 
+putenv('APP_ENV=production');
+putenv('APP_DEBUG=false');
+putenv('DB_CONNECTION=sqlite');
+putenv('DB_DATABASE=' . $dbTmp);
 putenv('VIEW_COMPILED_PATH=' . $storageTmp . '/framework/views');
 
 require __DIR__ . '/../vendor/autoload.php';
 
 $app = require_once __DIR__ . '/../bootstrap/app.php';
-
 $app->useStoragePath($storageTmp);
 
 $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
 
-$response = $kernel->handle(
-    $request = Illuminate\Http\Request::capture()
-);
+$request = Illuminate\Http\Request::capture();
+$response = $kernel->handle($request);
 
 $response->send();
-
 $kernel->terminate($request, $response);

@@ -423,8 +423,8 @@
                     <div class="field">
                         <label for="password">Password {{ $editEmployee ? '(kosongkan jika tidak diubah)' : '' }}</label>
                         <div style="position: relative;">
-                            <input id="password" name="password" type="password" {{ $editEmployee ? '' : 'required' }} style="padding-right: 55px;">
-                            <button type="button" id="togglePassword" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 12px; font-weight: 600; color: #3b82f6; padding: 4px 8px;">
+                            <input id="password" name="password" type="password" {{ $editEmployee ? '' : 'required' }} style="padding-right: 50px; width: 100%;">
+                            <button type="button" id="togglePassword" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 12px; font-weight: 600; color: #0ea5e9; padding: 6px 8px; z-index: 10; pointer-events: auto; -webkit-user-select: none; user-select: none;">
                                 Show
                             </button>
                         </div>
@@ -554,9 +554,17 @@
         if (togglePasswordBtn && passwordInput) {
             togglePasswordBtn.addEventListener('click', function(e) {
                 e.preventDefault();
-                const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-                passwordInput.setAttribute('type', type);
-                togglePasswordBtn.textContent = type === 'password' ? 'Show' : 'Hide';
+                e.stopPropagation();
+                // Use type property instead of setAttribute
+                if (passwordInput.type === 'password') {
+                    passwordInput.type = 'text';
+                    togglePasswordBtn.textContent = 'Hide';
+                } else {
+                    passwordInput.type = 'password';
+                    togglePasswordBtn.textContent = 'Show';
+                }
+                // Ensure input stays focused
+                passwordInput.focus();
             });
         }
     </script>

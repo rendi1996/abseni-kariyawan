@@ -36,9 +36,23 @@ putenv('DB_CONNECTION=sqlite');
 putenv('DB_DATABASE=' . $dbTmp);
 putenv('VIEW_COMPILED_PATH=' . $storageTmp . '/framework/views');
 
-require __DIR__ . '/../vendor/autoload.php';
+$autoload = __DIR__ . '/../vendor/autoload.php';
+if (!file_exists($autoload)) {
+    http_response_code(500);
+    echo 'Missing vendor/autoload.php';
+    return;
+}
 
-$app = require_once __DIR__ . '/../bootstrap/app.php';
+require $autoload;
+
+$bootstrap = __DIR__ . '/../bootstrap/app.php';
+if (!file_exists($bootstrap)) {
+    http_response_code(500);
+    echo 'Missing bootstrap/app.php';
+    return;
+}
+
+$app = require_once $bootstrap;
 $app->useStoragePath($storageTmp);
 
 $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);

@@ -1,5 +1,9 @@
 <?php
 
+/**
+ * Vercel Serverless Entry Point for Laravel
+ */
+
 define('LARAVEL_START', microtime(true));
 
 $storageTmp = '/tmp/storage';
@@ -17,6 +21,7 @@ foreach ($dirs as $dir) {
     }
 }
 
+// Copy SQLite database to /tmp (Vercel filesystem is read-only)
 $dbTmp = '/tmp/database.sqlite';
 if (!file_exists($dbTmp)) {
     $dbSource = __DIR__ . '/../database/database.sqlite';
@@ -27,38 +32,24 @@ if (!file_exists($dbTmp)) {
     }
 }
 
-putenv('APP_ENV=production');
-putenv('APP_DEBUG=false');
-putenv('APP_KEY=base64:Ss0YPE25VtW6i+vknKKMXnXLsxK/gWey835hWY0W0Hg=');
-putenv('CACHE_DRIVER=array');
-putenv('SESSION_DRIVER=cookie');
+// Pastikan Laravel menggunakan database SQLite yang sudah disalin ke /tmp
 putenv('DB_CONNECTION=sqlite');
 putenv('DB_DATABASE=' . $dbTmp);
+
 putenv('VIEW_COMPILED_PATH=' . $storageTmp . '/framework/views');
 
-$autoload = __DIR__ . '/../vendor/autoload.php';
-if (!file_exists($autoload)) {
-    http_response_code(500);
-    echo 'Missing vendor/autoload.php';
-    return;
-}
+require __DIR__ . '/../vendor/autoload.php';
 
-require $autoload;
+$app = require_once __DIR__ . '/../bootstrap/app.php';
 
-$bootstrap = __DIR__ . '/../bootstrap/app.php';
-if (!file_exists($bootstrap)) {
-    http_response_code(500);
-    echo 'Missing bootstrap/app.php';
-    return;
-}
-
-$app = require_once $bootstrap;
 $app->useStoragePath($storageTmp);
 
 $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
 
-$request = Illuminate\Http\Request::capture();
-$response = $kernel->handle($request);
+$response = $kernel->handle(
+    $request = Illuminate\Http\Request::capture()
+);
 
 $response->send();
+
 $kernel->terminate($request, $response);

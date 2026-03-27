@@ -194,6 +194,8 @@
         }
 
         .camera-toolbar { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 12px; justify-content: center; align-items: center; }
+        .btn-flip { background: #0f172a; color: #f8fafc; border-color: #0f172a; }
+        .btn-flip:hover { background: #1e293b; }
         .camera-info { padding: 0 12px 12px; }
 
         #captureBtn {
@@ -586,6 +588,10 @@
                             </div>
                             <div class="camera-toolbar">
                                 <button type="button" id="openCameraBtn" class="btn">Buka Kamera</button>
+                                <button type="button" id="flipCameraBtn" class="btn btn-flip" style="display:none;" title="Ganti Kamera">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px;"><path d="M1 4v6h6"/><path d="M23 20v-6h-6"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>
+                                    Ganti Kamera
+                                </button>
                                 <button type="button" id="retakeBtn" class="btn" style="display:none;">Ulangi Foto</button>
                             </div>
                             <div class="camera-info">
@@ -865,6 +871,17 @@
         }
 
         // ── Kamera via getUserMedia ────────────────────────────────────────
+        let currentFacingMode = 'environment'; // mulai dengan kamera belakang
+        let availableCameras  = [];
+
+        // Deteksi berapa kamera tersedia
+        async function detectCameras() {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            availableCameras = devices.filter(d => d.kind === 'videoinput');
+        }
+        detectCameras();
+
         function stopCamera() {
             if (cameraStream) {
                 cameraStream.getTracks().forEach(t => t.stop());
@@ -872,20 +889,27 @@
             }
             cameraVideo.srcObject = null;
             cameraVideo.style.display = 'none';
+            cameraVideo.style.transform = '';
             captureBtn.style.display  = 'none';
+            const _flip = document.getElementById('flipCameraBtn');
+            if (_flip) _flip.style.display = 'none';
         }
 
-        async function startCamera() {
+        async function startCamera(facingMode = currentFacingMode) {
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
                 photoInput.click();
                 return;
             }
 
+            // Hentikan stream lama jika ada
+            if (cameraStream) stopCamera();
+
+            currentFacingMode = facingMode;
+
             try {
-                // Prioritaskan kamera belakang dan rasio portrait agar cocok untuk Android.
                 let constraints = {
                     video: {
-                        facingMode: { ideal: 'environment' },
+                        facingMode: { ideal: facingMode },
                         width: { ideal: 1080 },
                         height: { ideal: 1440 },
                         aspectRatio: { ideal: 0.75 }
@@ -905,6 +929,14 @@
                 photoPreview.style.display  = 'none';
                 cameraPlaceholder.style.display = 'none';
                 retakeBtn.style.display     = 'none';
+
+                // Tampilkan tombol flip hanya jika ada lebih dari 1 kamera
+                await detectCameras();
+                flipCameraBtn.style.display = availableCameras.length > 1 ? 'inline-flex' : 'none';
+                flipCameraBtn.textContent   = facingMode === 'environment' ? '🔄 Kamera Depan' : '🔄 Kamera Belakang';
+
+                // Mirror video saat kamera depan aktif
+                cameraVideo.style.transform = facingMode === 'user' ? 'scaleX(-1)' : '';
             } catch (err) {
                 let msg = 'Tidak dapat mengakses kamera langsung.';
                 if (err.name === 'NotAllowedError')  msg = 'Izin kamera ditolak. Silakan izinkan akses kamera di browser Anda.';
@@ -915,11 +947,22 @@
             }
         }
 
+        async function flipCamera() {
+            const nextMode = currentFacingMode === 'environment' ? 'user' : 'environment';
+            await startCamera(nextMode);
+        }
+
         function capturePhoto() {
             if (!cameraStream) return;
             cameraCanvas.width  = cameraVideo.videoWidth  || 1280;
             cameraCanvas.height = cameraVideo.videoHeight || 720;
-            cameraCanvas.getContext('2d').drawImage(cameraVideo, 0, 0, cameraCanvas.width, cameraCanvas.height);
+            const ctx = cameraCanvas.getContext('2d');
+            // Mirror canvas saat kamera depan agar foto tidak terbalik
+            if (currentFacingMode === 'user') {
+                ctx.translate(cameraCanvas.width, 0);
+                ctx.scale(-1, 1);
+            }
+            ctx.drawImage(cameraVideo, 0, 0, cameraCanvas.width, cameraCanvas.height);
 
             cameraCanvas.toBlob((blob) => {
                 const file = new File([blob], 'absensi-' + Date.now() + '.jpg', { type: 'image/jpeg' });
@@ -943,7 +986,10 @@
             }, 'image/jpeg', 0.88);
         }
 
-        openCameraBtn.addEventListener('click', startCamera);
+        const flipCameraBtn = document.getElementById('flipCameraBtn');
+
+        openCameraBtn.addEventListener('click', () => startCamera());
+        flipCameraBtn.addEventListener('click', flipCamera);
         captureBtn.addEventListener('click', capturePhoto);
 
         retakeBtn.addEventListener('click', () => {
@@ -953,12 +999,13 @@
             photoPreview.style.display     = 'none';
             cameraPlaceholder.style.display = 'flex';
             retakeBtn.style.display        = 'none';
+            flipCameraBtn.style.display    = 'none';
             openCameraBtn.style.display    = 'inline-flex';
             document.getElementById('captureWarning').style.display = 'none';
             window._capturedPhotoBlob      = null;
             updatePhotoStatus(false);
-            // Langsung buka kamera ulang
-            startCamera();
+            // Langsung buka kamera ulang dengan mode terakhir
+            startCamera(currentFacingMode);
         });
 
         // Intercept submit untuk Safari lama yang tidak support DataTransfer assignment

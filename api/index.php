@@ -7,12 +7,14 @@
 define('LARAVEL_START', microtime(true));
 
 $storageTmp = '/tmp/storage';
+$bootstrapCacheTmp = '/tmp/bootstrap/cache';
 $dirs = [
     $storageTmp . '/app/public',
     $storageTmp . '/framework/cache/data',
     $storageTmp . '/framework/sessions',
     $storageTmp . '/framework/views',
     $storageTmp . '/logs',
+    $bootstrapCacheTmp,
 ];
 
 foreach ($dirs as $dir) {
@@ -36,6 +38,12 @@ if (!file_exists($dbTmp)) {
 putenv('DB_CONNECTION=sqlite');
 putenv('DB_DATABASE=' . $dbTmp);
 
+// Arahkan seluruh file cache Laravel ke /tmp agar writable di Vercel.
+putenv('APP_CONFIG_CACHE=' . $bootstrapCacheTmp . '/config.php');
+putenv('APP_ROUTES_CACHE=' . $bootstrapCacheTmp . '/routes-v7.php');
+putenv('APP_EVENTS_CACHE=' . $bootstrapCacheTmp . '/events.php');
+putenv('APP_PACKAGES_CACHE=' . $bootstrapCacheTmp . '/packages.php');
+putenv('APP_SERVICES_CACHE=' . $bootstrapCacheTmp . '/services.php');
 putenv('VIEW_COMPILED_PATH=' . $storageTmp . '/framework/views');
 
 require __DIR__ . '/../vendor/autoload.php';
@@ -43,6 +51,25 @@ require __DIR__ . '/../vendor/autoload.php';
 $app = require_once __DIR__ . '/../bootstrap/app.php';
 
 $app->useStoragePath($storageTmp);
+
+$consoleKernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
+$consoleKernel->bootstrap();
+
+$needsMigration = !file_exists($dbTmp) || filesize($dbTmp) === 0;
+
+if (!$needsMigration) {
+    try {
+        $pdo = new PDO('sqlite:' . $dbTmp);
+        $stmt = $pdo->query("SELECT name FROM sqlite_master WHERE type='table' AND name='migrations' LIMIT 1");
+        $needsMigration = !$stmt || !$stmt->fetch();
+    } catch (Throwable $e) {
+        $needsMigration = true;
+    }
+}
+
+if ($needsMigration) {
+    Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+}
 
 $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
 

@@ -74,7 +74,9 @@ Route::get('/storage/{path}', function ($path) {
     if (!$disk->exists($path)) {
         abort(404);
     }
-    $mime = $disk->mimeType($path) ?: 'image/jpeg';
+    $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+    $mimeMap = ['jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'png' => 'image/png', 'gif' => 'image/gif', 'webp' => 'image/webp'];
+    $mime = $mimeMap[$ext] ?? 'application/octet-stream';
     return response($disk->get($path), 200)
         ->header('Content-Type', $mime)
         ->header('Cache-Control', 'public, max-age=86400');

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Attendance;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class AttendanceController extends Controller
 {
@@ -68,7 +69,8 @@ class AttendanceController extends Controller
             'latitude' => 'nullable|numeric',
             'longitude' => 'nullable|numeric',
             'address' => 'nullable|string|max:1000',
-            'photo' => 'required|image|max:4096',
+            'photo' => 'nullable|image|max:4096',
+            'photo_base64' => 'nullable|string|max:8000000',
             'notes' => 'nullable|string|max:500',
         ]);
 
@@ -159,23 +161,58 @@ class AttendanceController extends Controller
         // Validasi photo capture - harus dari kamera real-time
         if ($request->hasFile('photo')) {
             $photoFile = $request->file('photo');
-            
+
             // Check if file is recently captured (within last 15 minutes)
-            $fileModifiedTime = filemtime($photoFile->getRealPath());
-            $currentTime = time();
-            $timeDiffSeconds = $currentTime - $fileModifiedTime;
-            
-            // Reject jika file lebih lama dari 15 menit
-            if ($timeDiffSeconds > 900) {
+            $fileModifiedTime = @filemtime($photoFile->getRealPath());
+            if ($fileModifiedTime !== false) {
+                $timeDiffSeconds = time() - $fileModifiedTime;
+
+                // Reject jika file lebih lama dari 15 menit
+                if ($timeDiffSeconds > 900) {
+                    return redirect()->back()
+                        ->withInput()
+                        ->withErrors([
+                            'photo' => 'Foto harus diambil langsung dari kamera real-time. File ini terlihat upload manual atau terlalu lama.',
+                        ]);
+                }
+            }
+
+            $data['photo_path'] = $photoFile->store('attendances', 'public');
+        } elseif ($request->filled('photo_base64')) {
+            // Fallback: decode base64 photo dari canvas (untuk browser yang tidak support DataTransfer)
+            $base64 = $request->input('photo_base64');
+
+            if (! preg_match('/^data:image\/(jpeg|jpg|png|webp);base64,(.+)$/', $base64, $matches)) {
                 return redirect()->back()
                     ->withInput()
-                    ->withErrors([
-                        'photo' => 'Foto harus diambil langsung dari kamera real-time. File ini terlihat upload manual atau terlalu lama.',
-                    ]);
+                    ->withErrors(['photo' => 'Format foto tidak valid.']);
             }
-            
-            $data['photo_path'] = $photoFile->store('attendances', 'public');
+
+            $imageData = base64_decode($matches[2], true);
+            if ($imageData === false || strlen($imageData) > 4 * 1024 * 1024) {
+                return redirect()->back()
+                    ->withInput()
+                    ->withErrors(['photo' => 'Data foto tidak valid atau terlalu besar.']);
+            }
+
+            $imageInfo = @getimagesizefromstring($imageData);
+            if (! $imageInfo) {
+                return redirect()->back()
+                    ->withInput()
+                    ->withErrors(['photo' => 'File bukan gambar yang valid.']);
+            }
+
+            $filename = 'attendances/absensi-' . time() . '-' . uniqid() . '.jpg';
+            Storage::disk('public')->put($filename, $imageData);
+            $data['photo_path'] = $filename;
+        } else {
+            return redirect()->back()
+                ->withInput()
+                ->withErrors(['photo' => 'Foto wajib diambil dari kamera.']);
         }
+
+        // Bersihkan field yang bukan kolom database
+        unset($data['photo'], $data['photo_base64']);
 
         $data['address'] = $data['address'] ?? null;
         $data['notes'] = $data['notes'] ?? null;

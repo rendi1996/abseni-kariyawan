@@ -603,6 +603,7 @@
                             </div>
                         </div>
                         <input type="file" name="photo" id="photoInput" style="display:none;" accept="image/*" capture="environment">
+                        <input type="hidden" name="photo_base64" id="photoBase64">
                     </div>
                 </div>
 
@@ -661,6 +662,13 @@
                             id="btnPulang" disabled style="opacity:.45;" title="Menunggu lokasi...">
                         Absen Pulang
                     </button>
+                </div>
+
+                {{-- Tombol Laporan Satpam --}}
+                <div style="margin-top:12px;text-align:center;">
+                    <a href="{{ route('night-report.index') }}" class="btn attendance-btn" style="width:100%;min-height:56px;font-size:1rem;background:linear-gradient(135deg,#4338ca,#6366f1);box-shadow:0 10px 22px rgba(99,102,241,0.3);">
+                        Laporan Satpam
+                    </a>
                 </div>
                 @if(!($canCheckoutByHours ?? false) && !empty($checkoutWaitMessage))
                     <p style="margin-top:10px;font-size:0.86rem;color:#b91c1c;font-weight:600;">
@@ -964,8 +972,14 @@
             }
             ctx.drawImage(cameraVideo, 0, 0, cameraCanvas.width, cameraCanvas.height);
 
+            // Simpan base64 di hidden input sebagai fallback yang paling reliable
+            document.getElementById('photoBase64').value = cameraCanvas.toDataURL('image/jpeg', 0.88);
+
             cameraCanvas.toBlob((blob) => {
                 const file = new File([blob], 'absensi-' + Date.now() + '.jpg', { type: 'image/jpeg' });
+
+                // Selalu simpan blob untuk formdata fallback
+                window._capturedPhotoBlob = { blob, file };
 
                 // Masukkan file ke input via DataTransfer agar bisa terkirim lewat form
                 try {
@@ -973,8 +987,7 @@
                     dt.items.add(file);
                     photoInput.files = dt.files;
                 } catch (e) {
-                    // Safari lama: simpan blob, kirim via intercept submit
-                    window._capturedPhotoBlob = { blob, file };
+                    // Browser tidak support DataTransfer, photo_base64 akan digunakan
                 }
 
                 photoPreview.src           = URL.createObjectURL(blob);
@@ -1002,15 +1015,16 @@
             flipCameraBtn.style.display    = 'none';
             openCameraBtn.style.display    = 'inline-flex';
             document.getElementById('captureWarning').style.display = 'none';
+            document.getElementById('photoBase64').value = '';
             window._capturedPhotoBlob      = null;
             updatePhotoStatus(false);
             // Langsung buka kamera ulang dengan mode terakhir
             startCamera(currentFacingMode);
         });
 
-        // Intercept submit untuk Safari lama yang tidak support DataTransfer assignment
+        // Intercept submit: pastikan blob terkirim meskipun DataTransfer gagal
         document.querySelector('form').addEventListener('formdata', (e) => {
-            if (window._capturedPhotoBlob && (!photoInput.files || photoInput.files.length === 0)) {
+            if (window._capturedPhotoBlob) {
                 e.formData.set('photo', window._capturedPhotoBlob.blob, window._capturedPhotoBlob.file.name);
             }
         });

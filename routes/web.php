@@ -68,4 +68,16 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::get('/employees/export', [App\Http\Controllers\AdminEmployeeController::class, 'export'])->name('employees.export');
 });
 
+// Serve photos from storage (works on Vercel where /tmp is used)
+Route::get('/storage/{path}', function ($path) {
+    $disk = Illuminate\Support\Facades\Storage::disk('public');
+    if (!$disk->exists($path)) {
+        abort(404);
+    }
+    $mime = $disk->mimeType($path) ?: 'image/jpeg';
+    return response($disk->get($path), 200)
+        ->header('Content-Type', $mime)
+        ->header('Cache-Control', 'public, max-age=86400');
+})->where('path', '.*')->name('storage.serve');
+
 require __DIR__.'/auth.php';

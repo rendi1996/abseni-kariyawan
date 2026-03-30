@@ -11,7 +11,6 @@
     { "src": "/js/(.*)", "dest": "/public/js/$1" },
     { "src": "/images/(.*)", "dest": "/public/images/$1" },
     { "src": "/icons/(.*)", "dest": "/public/icons/$1" },
-    { "src": "/storage/(.*)", "dest": "/public/storage/$1" },
     { "src": "/(manifest\\.json|sw\\.js|favicon\\.ico|robots\\.txt)", "dest": "/public/$1" },
     { "src": "/(.*)", "dest": "/api/index.php" }
   ],
@@ -19,6 +18,7 @@
     "APP_ENV": "production",
     "APP_DEBUG": "false",
     "APP_KEY": "base64:Ss0YPE25VtW6i+vknKKMXnXLsxK/gWey835hWY0W0Hg=",
+    "APP_TIMEZONE": "Asia/Jakarta",
     "LOG_CHANNEL": "stderr",
     "VIEW_COMPILED_PATH": "/tmp/storage/framework/views",
     "CACHE_DRIVER": "array",

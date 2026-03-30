@@ -10,7 +10,9 @@ $storageTmp = '/tmp/storage';
 $bootstrapCacheTmp = '/tmp/bootstrap/cache';
 $dirs = [
     $storageTmp . '/app/public',
+    $storageTmp . '/app/public/attendances',
     $storageTmp . '/app/public/night-reports',
+    $storageTmp . '/app/public/profile-photos',
     $storageTmp . '/framework/cache/data',
     $storageTmp . '/framework/sessions',
     $storageTmp . '/framework/views',

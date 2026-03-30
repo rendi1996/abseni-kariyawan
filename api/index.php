@@ -10,6 +10,7 @@ $storageTmp = '/tmp/storage';
 $bootstrapCacheTmp = '/tmp/bootstrap/cache';
 $dirs = [
     $storageTmp . '/app/public',
+    $storageTmp . '/app/public/night-reports',
     $storageTmp . '/framework/cache/data',
     $storageTmp . '/framework/sessions',
     $storageTmp . '/framework/views',
@@ -55,20 +56,12 @@ $app->useStoragePath($storageTmp);
 $consoleKernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
 $consoleKernel->bootstrap();
 
-$needsMigration = !file_exists($dbTmp) || filesize($dbTmp) === 0;
-
-if (!$needsMigration) {
-    try {
-        $pdo = new PDO('sqlite:' . $dbTmp);
-        $stmt = $pdo->query("SELECT name FROM sqlite_master WHERE type='table' AND name='migrations' LIMIT 1");
-        $needsMigration = !$stmt || !$stmt->fetch();
-    } catch (Throwable $e) {
-        $needsMigration = true;
-    }
-}
-
-if ($needsMigration) {
+// Always run pending migrations to apply any new tables
+try {
     Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+} catch (Throwable $e) {
+    // Log but don't block the request
+    error_log('Migration error: ' . $e->getMessage());
 }
 
 $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);

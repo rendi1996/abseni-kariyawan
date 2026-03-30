@@ -22,7 +22,7 @@
     "LOG_CHANNEL": "stderr",
     "VIEW_COMPILED_PATH": "/tmp/storage/framework/views",
     "CACHE_DRIVER": "array",
-    "SESSION_DRIVER": "database",
+    "SESSION_DRIVER": "file",
     "QUEUE_CONNECTION": "sync",
     "DB_CONNECTION": "sqlite",
     "DB_DATABASE": "/tmp/database.sqlite"

@@ -28,6 +28,7 @@ foreach ($dirs as $dir) {
 
 // Copy SQLite database to /tmp (Vercel filesystem is read-only)
 $dbTmp = '/tmp/database.sqlite';
+$dbIsNew = false;
 if (!file_exists($dbTmp)) {
     $dbSource = __DIR__ . '/../database/database.sqlite';
     if (file_exists($dbSource)) {
@@ -35,6 +36,7 @@ if (!file_exists($dbTmp)) {
     } else {
         touch($dbTmp);
     }
+    $dbIsNew = true;
 }
 
 // Pastikan Laravel menggunakan database SQLite yang sudah disalin ke /tmp
@@ -58,12 +60,13 @@ $app->useStoragePath($storageTmp);
 $consoleKernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
 $consoleKernel->bootstrap();
 
-// Always run pending migrations to apply any new tables
-try {
-    Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
-} catch (Throwable $e) {
-    // Log but don't block the request
-    error_log('Migration error: ' . $e->getMessage());
+// Only run migrations on cold start (when DB was just created/copied)
+if ($dbIsNew) {
+    try {
+        Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+    } catch (Throwable $e) {
+        error_log('Migration error: ' . $e->getMessage());
+    }
 }
 
 $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);

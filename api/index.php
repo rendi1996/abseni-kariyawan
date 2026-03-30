@@ -27,16 +27,19 @@ foreach ($dirs as $dir) {
 }
 
 // Copy SQLite database to /tmp (Vercel filesystem is read-only)
+// Use a deploy marker to detect new deployments on warm containers
 $dbTmp = '/tmp/database.sqlite';
-$dbIsNew = false;
-if (!file_exists($dbTmp)) {
+$deployMarker = '/tmp/.deploy_marker';
+$deployHash = md5_file(__DIR__ . '/../composer.json');
+$isNewDeploy = !file_exists($deployMarker) || trim((string) file_get_contents($deployMarker)) !== $deployHash;
+
+if (!file_exists($dbTmp) || $isNewDeploy) {
     $dbSource = __DIR__ . '/../database/database.sqlite';
     if (file_exists($dbSource)) {
         copy($dbSource, $dbTmp);
     } else {
         touch($dbTmp);
     }
-    $dbIsNew = true;
 }
 
 // Pastikan Laravel menggunakan database SQLite yang sudah disalin ke /tmp
@@ -60,10 +63,11 @@ $app->useStoragePath($storageTmp);
 $consoleKernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
 $consoleKernel->bootstrap();
 
-// Only run migrations on cold start (when DB was just created/copied)
-if ($dbIsNew) {
+// Run migrations on cold start or new deployment
+if ($isNewDeploy || !file_exists($dbTmp)) {
     try {
         Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+        file_put_contents($deployMarker, $deployHash);
     } catch (Throwable $e) {
         error_log('Migration error: ' . $e->getMessage());
     }

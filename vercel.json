@@ -2,7 +2,8 @@
   "version": 2,
   "functions": {
     "api/index.php": {
-      "runtime": "vercel-php@0.7.2"
+      "runtime": "vercel-php@0.7.2",
+      "maxDuration": 30
     }
   },
   "routes": [
@@ -16,13 +17,16 @@
   ],
   "env": {
     "APP_ENV": "production",
-    "APP_DEBUG": "false",
+    "APP_DEBUG": "true",
     "APP_KEY": "base64:Ss0YPE25VtW6i+vknKKMXnXLsxK/gWey835hWY0W0Hg=",
     "APP_TIMEZONE": "Asia/Jakarta",
+    "APP_URL": "https://abseni-kariyawan.vercel.app",
     "LOG_CHANNEL": "stderr",
     "VIEW_COMPILED_PATH": "/tmp/storage/framework/views",
     "CACHE_DRIVER": "array",
-    "SESSION_DRIVER": "file",
+    "SESSION_DRIVER": "cookie",
+    "SESSION_ENCRYPT": "false",
+    "SESSION_LIFETIME": "120",
     "QUEUE_CONNECTION": "sync",
     "DB_CONNECTION": "sqlite",
     "DB_DATABASE": "/tmp/database.sqlite"
